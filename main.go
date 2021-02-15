@@ -72,20 +72,25 @@ func main() {
 	fmt.Printf("Total: %d\n", counter.GetCount())
 }
 
-func handleUrl(process urlProcess, findWord string, tokens chan struct{}, c *counter) {
-	tokens <- struct{}{}
-	resp, err := http.Get(process.url)
+func getBody(url string) (string, error) {
+	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
+	return string(body), err
+}
+
+func handleUrl(process urlProcess, findWord string, tokens chan struct{}, c *counter) {
+	tokens <- struct{}{}
+	if body, err := getBody(process.url); err == nil {
+		count := strings.Count(body, findWord)
+		fmt.Printf("Count for %s: %d\n", process.url, count)
+		c.Add(count)
+	} else {
+		fmt.Printf("processing error - %s\n", err)
 	}
-	count := strings.Count(string(body), findWord)
-	fmt.Printf("Count for %s: %d\n", process.url, count)
-	c.Add(count)
 	<-tokens
 	process.wait.Done()
 }
